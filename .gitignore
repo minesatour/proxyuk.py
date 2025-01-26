@@ -1,0 +1,26 @@
+# Python bytecode files
+*.pyc
+*.pyo
+__pycache__/
+
+# Virtual environment directories (common names)
+venv/
+env/
+.venv/
+.env/
+
+# Log files
+*.log
+
+# MacOS system files
+.DS_Store
+
+# IDE/editor specific files (if you're using a common editor like VS Code, PyCharm, etc.)
+.vscode/
+.idea/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Other potentially sensitive or unwanted files
+*.env
