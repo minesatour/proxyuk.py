@@ -2,10 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 from sklearn.neighbors import KNeighborsClassifier
 import time
-import random
-import json
-import re
-import os
 
 # List of proxy providers to scrape from
 PROXY_SOURCES = [
@@ -15,17 +11,17 @@ PROXY_SOURCES = [
     'https://www.proxy-list.download/',  # Alternative provider 3
 ]
 
-# Function to fetch proxies from a proxy list website (you can modify the URL for different websites)
+# Function to fetch proxies from a proxy list website
 def fetch_proxies():
     proxy_list = []
     
     for url in PROXY_SOURCES:
         print(f"Fetching proxies from {url}...")
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
         try:
-            # Attempt to find the proxy table
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # Check if the proxy table is available
             if 'sslproxies.org' in url:
                 table = soup.find('table', {'id': 'proxylisttable'})
             elif 'free-proxy-list.net' in url:
@@ -34,7 +30,7 @@ def fetch_proxies():
                 table = soup.find('table', {'id': 'proxylisttable'})
             elif 'proxy-list.download' in url:
                 table = soup.find('table', {'class': 'table table-striped table-bordered'})
-            
+
             if table is None:
                 raise ValueError(f"Could not find proxy table on {url}.")
             
@@ -45,7 +41,7 @@ def fetch_proxies():
                     ip = columns[0].text.strip()
                     port = columns[1].text.strip()
                     proxy_list.append(f'{ip}:{port}')
-                
+        
         except Exception as e:
             print(f"Error fetching proxies from {url}: {e}")
     
@@ -53,22 +49,25 @@ def fetch_proxies():
 
 # Function to test proxy speed
 def test_proxy_speed(proxy):
-    test_url = 'https://httpbin.org/ip'  # A simple endpoint to test proxy speed
+    test_url = 'https://httpbin.org/ip'
     proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
     try:
         start_time = time.time()
         response = requests.get(test_url, proxies=proxies, timeout=5)
         end_time = time.time()
         if response.status_code == 200:
-            return end_time - start_time  # Return the time taken to make the request
+            return end_time - start_time
     except requests.RequestException:
         return float('inf')  # Return a large number for unreachable proxies
 
     return float('inf')
 
-# Function to classify proxies using KNN
+# Function to classify proxies based on speed
 def classify_proxies(proxies):
-    # For this example, we'll classify based on speed (you could add more features here)
+    if not proxies:
+        print("No proxies available to classify.")
+        return None, []
+
     speeds = []
     labels = []
     proxy_data = []
@@ -76,7 +75,7 @@ def classify_proxies(proxies):
     for proxy in proxies:
         speed = test_proxy_speed(proxy)
         speeds.append(speed)
-        proxy_data.append([speed])  # Using the speed as the feature
+        proxy_data.append([speed])  # Using speed as the feature
     
     # Label proxies as 'fast' or 'slow' based on speed threshold
     threshold = 2  # Threshold in seconds
@@ -91,10 +90,10 @@ def classify_proxies(proxies):
     
     return classifier, proxies
 
-# Function to allow the user to select a proxy based on city
+# Function to allow the user to select a proxy
 def select_proxy_from_city(proxy_list, classifier):
     city = input("Enter the city for the proxy: ").lower()
-    city_proxies = [proxy for proxy in proxy_list if city in proxy]  # Assuming city is in the proxy string
+    city_proxies = [proxy for proxy in proxy_list if city in proxy]
     
     if not city_proxies:
         print("No proxies found for that city.")
@@ -106,13 +105,11 @@ def select_proxy_from_city(proxy_list, classifier):
         speed = test_proxy_speed(proxy)
         proxy_data.append([speed])
     
-    # Use classifier to predict whether the proxy is fast or slow
     predictions = classifier.predict(proxy_data)
     
     for proxy, prediction in zip(city_proxies, predictions):
         print(f"Proxy: {proxy}, Speed: {'Fast' if prediction == 'fast' else 'Slow'}")
     
-    # Let user choose a proxy
     selected_proxy = input("Enter the proxy to connect to (e.g., '192.168.1.1:8080'): ")
     
     if selected_proxy not in city_proxies:
@@ -136,15 +133,23 @@ def connect_to_proxy(proxy):
 # Main function to run the proxy selection process
 def run_proxy_selection():
     print("Fetching proxies...")
-    proxies = fetch_proxies()  # Fetch proxies from the web
+    proxies = fetch_proxies()
+    
+    if not proxies:
+        print("No proxies fetched. Exiting.")
+        return
     
     print(f"Fetched {len(proxies)} proxies.")
     
     print("Classifying proxies based on speed...")
-    classifier, proxy_list = classify_proxies(proxies)  # Classify proxies based on speed
+    classifier, proxy_list = classify_proxies(proxies)
+    
+    if classifier is None:
+        print("No proxies to classify.")
+        return
     
     print("Select a proxy by entering the city name.")
-    selected_proxy = select_proxy_from_city(proxy_list, classifier)  # Select a proxy
+    selected_proxy = select_proxy_from_city(proxy_list, classifier)
     
     if selected_proxy:
         print(f"Connecting to proxy {selected_proxy}...")
