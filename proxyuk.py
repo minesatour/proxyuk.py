@@ -7,22 +7,47 @@ import json
 import re
 import os
 
+# List of proxy providers to scrape from
+PROXY_SOURCES = [
+    'https://www.sslproxies.org/',  # Original provider
+    'https://www.free-proxy-list.net/',  # Alternative provider 1
+    'https://www.us-proxy.org/',  # Alternative provider 2
+    'https://www.proxy-list.download/',  # Alternative provider 3
+]
+
 # Function to fetch proxies from a proxy list website (you can modify the URL for different websites)
 def fetch_proxies():
-    url = 'https://www.sslproxies.org/'  # Example: you can use other proxy list providers
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    
     proxy_list = []
     
-    # Scraping the proxy details (adjust this according to the structure of the page)
-    rows = soup.find('table', {'id': 'proxylisttable'}).find_all('tr')[1:]  # Skipping the header row
-    for row in rows:
-        columns = row.find_all('td')
-        if len(columns) > 0:
-            ip = columns[0].text.strip()
-            port = columns[1].text.strip()
-            proxy_list.append(f'{ip}:{port}')
+    for url in PROXY_SOURCES:
+        print(f"Fetching proxies from {url}...")
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        try:
+            # Attempt to find the proxy table
+            if 'sslproxies.org' in url:
+                table = soup.find('table', {'id': 'proxylisttable'})
+            elif 'free-proxy-list.net' in url:
+                table = soup.find('table', {'id': 'proxylisttable'})
+            elif 'us-proxy.org' in url:
+                table = soup.find('table', {'id': 'proxylisttable'})
+            elif 'proxy-list.download' in url:
+                table = soup.find('table', {'class': 'table table-striped table-bordered'})
+            
+            if table is None:
+                raise ValueError(f"Could not find proxy table on {url}.")
+            
+            rows = table.find_all('tr')[1:]  # Skipping the header row
+            for row in rows:
+                columns = row.find_all('td')
+                if len(columns) > 0:
+                    ip = columns[0].text.strip()
+                    port = columns[1].text.strip()
+                    proxy_list.append(f'{ip}:{port}')
+                
+        except Exception as e:
+            print(f"Error fetching proxies from {url}: {e}")
     
     return proxy_list
 
@@ -112,6 +137,8 @@ def connect_to_proxy(proxy):
 def run_proxy_selection():
     print("Fetching proxies...")
     proxies = fetch_proxies()  # Fetch proxies from the web
+    
+    print(f"Fetched {len(proxies)} proxies.")
     
     print("Classifying proxies based on speed...")
     classifier, proxy_list = classify_proxies(proxies)  # Classify proxies based on speed
